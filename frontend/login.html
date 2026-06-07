@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EventHub.io - Login</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .login-card {
+            background: var(--surface-dark);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--border-color);
+            padding: 50px 40px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        }
+        .login-card h2 { margin-bottom: 30px; font-size: 28px; }
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            color: white;
+            outline: none;
+            font-size: 16px;
+        }
+        .input-group input:focus, .input-group select:focus { border-color: var(--primary-accent); }
+        .input-group select option { color: black; }
+        .auth-btn {
+            width: 100%;
+            background: var(--primary-accent);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        #loginError { color: #ff4757; margin-top: 15px; font-size: 14px; display: none; }
+    </style>
+</head>
+<body class="dark-theme">
+
+    <div class="login-card">
+        <div class="logo" style="justify-content: center; margin-bottom: 20px;">
+            <i class="fa-solid fa-camera-retro"></i>
+            <span>EventHub.io</span>
+        </div>
+        <h2>Welcome Back</h2>
+        
+        <form id="loginForm">
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" required>
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="loginPassword" required>
+            </div>
+            <button type="submit" id="loginSubmitBtn" class="auth-btn">Secure Login</button>
+            <p id="loginError">Login failed. Please check your credentials.</p>
+            <p style="text-align: center; margin-top: 15px; color: #a0a0a0; cursor: pointer;" onclick="toggleForms('signup')">Don't have an account? <b>Sign Up</b></p>
+        </form>
+
+        <form id="signupForm" style="display: none;">
+            <div class="input-group">
+                <label>Full Name</label>
+                <input type="text" id="signupName" required>
+            </div>
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" id="signupEmail" required>
+            </div>
+            <div class="input-group">
+                <label>Select Your Role</label>
+                <select id="signupRole" required>
+                    <option value="" disabled selected>Select your role</option>
+                    <option value="Participant">Participant</option>
+                    <option value="Club Member">Club Member</option>
+                    <option value="Event Organizer">Event Organizer</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Secretary">Secretary</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Create Password</label>
+                <input type="password" id="signupPassword" required>
+            </div>
+            <div class="input-group">
+                <label>Confirm Password</label>
+                <input type="password" id="signupConfirmPassword" required>
+            </div>
+            <button type="submit" id="sendOtpBtn" class="auth-btn">Send Verification Code</button>
+            <p style="text-align: center; margin-top: 15px; color: #a0a0a0; cursor: pointer;" onclick="toggleForms('login')">Already have an account? <b>Login</b></p>
+        </form>
+
+        <form id="otpForm" style="display: none; text-align: center;">
+            <h3 style="color: white; margin-bottom: 10px;">Verify Your Email</h3>
+            <p style="color: #a0a0a0; font-size: 14px; margin-bottom: 20px;">We sent a 6-digit code to your email.</p>
+            <div class="input-group">
+                <input type="text" id="otpInput" placeholder="Enter 6-digit code" maxlength="6" style="text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;" required>
+            </div>
+            <button type="submit" class="auth-btn" style="background: #00f2fe; color: #1a1a2e;">Verify & Create Account</button>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        const submitBtn = document.getElementById('loginSubmitBtn');
+
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault(); 
+                if (submitBtn) submitBtn.innerText = "Verifying... ⏳";
+                if (loginError) loginError.style.display = "none";
+
+                const username = document.getElementById('loginEmail').value; 
+                const password = document.getElementById('loginPassword').value;
+
+                const formData = new URLSearchParams();
+                formData.append('username', username);
+                formData.append('password', password);
+
+                try {
+                    const response = await fetch(`${API_URL}/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: formData
+                    });
+
+                    if (!response.ok) throw new Error("Login failed");
+
+                    const data = await response.json();
+                    localStorage.setItem('eventhub_token', data.access_token);
+                    window.location.href = "index.html";
+
+                } catch (error) {
+                    if (loginError) loginError.style.display = "block";
+                    if (submitBtn) submitBtn.innerText = "Secure Login";
+                }
+            });
+        }
+
+        function toggleForms(target) {
+            document.getElementById('loginForm').style.display = target === 'login' ? 'block' : 'none';
+            document.getElementById('signupForm').style.display = target === 'signup' ? 'block' : 'none';
+            document.getElementById('otpForm').style.display = target === 'otp' ? 'block' : 'none';
+        }
+
+        const signupForm = document.getElementById('signupForm');
+        if (signupForm) {
+            signupForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const name = document.getElementById('signupName').value;
+                const email = document.getElementById('signupEmail').value;
+                const password = document.getElementById('signupPassword').value;
+                const confirmPassword = document.getElementById('signupConfirmPassword').value;
+                const role = document.getElementById('signupRole').value; 
+                const btn = document.getElementById('sendOtpBtn');
+
+                if (password !== confirmPassword) {
+                    alert("Passwords do not match! Please try again.");
+                    return; 
+                }
+
+                btn.innerText = "Sending Code...";
+
+                try {
+                    const response = await fetch(`${API_URL}/signup/request-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, email, password, role })
+                    });
+
+                    if (response.ok) {
+                        toggleForms('otp');
+                        alert("For the hackathon demo, check your backend Python terminal for the OTP!");
+                    } else {
+                        const err = await response.json();
+                        alert(err.detail || "Signup failed");
+                    }
+                } catch (err) {
+                    console.error(err);
+                } finally {
+                    btn.innerText = "Send Verification Code";
+                }
+            });
+        }
+
+        const otpForm = document.getElementById('otpForm');
+        if (otpForm) {
+            otpForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+            
+                const name = document.getElementById('signupName').value;
+                const email = document.getElementById('signupEmail').value;
+                const password = document.getElementById('signupPassword').value;
+                const otp = document.getElementById('otpInput').value;
+                const role = document.getElementById('signupRole').value;
+
+                try {
+                    const response = await fetch(`${API_URL}/signup/verify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, email, password, otp, role })
+                    });
+
+                    if (response.ok) {
+                        alert("Account Verified & Created! You can now log in.");
+                        toggleForms('login');
+                        document.getElementById('loginEmail').value = email; 
+                    } else {
+                        alert("Invalid Verification Code. Try again.");
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+
