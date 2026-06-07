@@ -1,6 +1,5 @@
 // CONFIGURATION 
-
-const API_URL = window.location.origin;
+const API_URL = "https://pratik-event-api.onrender.com";
 
 let currentEventId = null;
 let currentEventData = { my_events: [], other_events: [] };
