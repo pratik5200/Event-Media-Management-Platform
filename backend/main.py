@@ -19,7 +19,7 @@ from sqlalchemy import func
 from pydantic import BaseModel
 from passlib.context import CryptContext
 
-from app import models, schemas
+import models, schemas
 from app.database import engine, get_db, Base
 from app.auth import get_password_hash, get_current_user, verify_password, create_access_token 
 
