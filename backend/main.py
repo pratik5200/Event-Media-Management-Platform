@@ -56,7 +56,7 @@ origins = [
     "http://localhost:3000",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    "https://your-frontend-name.onrender.com"  # <-- Replace with your real Render frontend link!
+    "https://event-media-management-platform.vercel.app" # Your new Vercel link
 ]
 
 app.add_middleware(
