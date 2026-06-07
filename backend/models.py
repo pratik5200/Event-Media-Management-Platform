@@ -2,7 +2,7 @@ import sqlalchemy
 from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey,TIMESTAMP, text
 from sqlalchemy.dialects.postgresql import UUID 
 from sqlalchemy.orm import relationship
-from app.database import Base
+from database import Base
 import uuid
 print("HELLO! PYTHON IS SUCCESSFULLY READING THE REAL MODELS.PY FILE!")
 class User(Base):

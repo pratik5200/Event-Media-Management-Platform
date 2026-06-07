@@ -5,9 +5,8 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app import models 
-
+from database import get_db
+import models
 # SECURITY CONFIGURATION
 
 # NOTE: In a production environment, SECRET_KEY should be moved to your .env file
