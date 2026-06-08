@@ -203,7 +203,7 @@
 
                     if (response.ok) {
                         toggleForms('otp');
-                        alert("For the hackathon demo, check your backend Python terminal for the OTP!");
+                        alert("Verification code has been sent to your email! Please check your inbox.");
                     } else {
                         const err = await response.json();
                         alert(err.detail || "Signup failed");
