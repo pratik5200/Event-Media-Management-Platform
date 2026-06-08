@@ -131,42 +131,32 @@ async def websocket_endpoint(websocket: WebSocket):
 
 pending_otps = {}
 
-# --- HELPER FUNCTION TO SEND REAL EMAILS ---
+
 def send_otp_email(receiver_email, otp_code):
-    sender_email = os.getenv("EMAIL_SENDER")
-    sender_password = os.getenv("EMAIL_PASSWORD")
+    script_url = os.getenv("GOOGLE_SCRIPT_URL")
     
-    if not sender_email or not sender_password:
-        print("⚠️ Email credentials not found in Environment Variables!")
+    if not script_url:
+        print("⚠️ Missing GOOGLE_SCRIPT_URL in Render!")
         return
 
-    msg = MIMEMultipart()
-    msg['From'] = f"EventHub.io <{sender_email}>"
-    msg['To'] = receiver_email
-    msg['Subject'] = "Your EventHub Verification Code"
-
-    body = f"""
-    Welcome to EventHub.io!
-    
-    Your 6-digit verification code is: {otp_code}
-    
-    If you did not request this, please ignore this email.
-    """
-    msg.attach(MIMEText(body, 'plain'))
+    payload = {
+        "to": receiver_email,
+        "subject": "Your EventHub Verification Code",
+        "body": f"""
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+            <h2>Welcome to EventHub.io!</h2>
+            <p>Your verification code is:</p>
+            <h1 style="color: #6c5ce7; letter-spacing: 5px;">{otp_code}</h1>
+        </div>
+        """
+    }
 
     try:
-        # Connect to Gmail's server securely
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        
-        # Send the email
-        text = msg.as_string()
-        server.sendmail(sender_email, receiver_email, text)
-        server.quit()
-        print(f"✅ Real email successfully sent to {receiver_email}!")
+        # Sends data to your Google Script, completely bypassing Render's firewall!
+        requests.post(script_url, json=payload)
+        print(f"✅ OTP successfully sent via Google to {receiver_email}")
     except Exception as e:
-        print(f"❌ Failed to send real email: {e}")
+        print(f"❌ Failed to send: {e}")
 
 
 # --- UPDATED OTP ROUTE ---
