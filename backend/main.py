@@ -1,3 +1,6 @@
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import os
 import io
 import uuid
@@ -7,6 +10,8 @@ import requests
 from typing import List
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw
+
+
 
 import boto3
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, WebSocket, WebSocketDisconnect
@@ -126,6 +131,45 @@ async def websocket_endpoint(websocket: WebSocket):
 
 pending_otps = {}
 
+# --- HELPER FUNCTION TO SEND REAL EMAILS ---
+def send_otp_email(receiver_email, otp_code):
+    sender_email = os.getenv("EMAIL_SENDER")
+    sender_password = os.getenv("EMAIL_PASSWORD")
+    
+    if not sender_email or not sender_password:
+        print("⚠️ Email credentials not found in Environment Variables!")
+        return
+
+    msg = MIMEMultipart()
+    msg['From'] = f"EventHub.io <{sender_email}>"
+    msg['To'] = receiver_email
+    msg['Subject'] = "Your EventHub Verification Code"
+
+    body = f"""
+    Welcome to EventHub.io!
+    
+    Your 6-digit verification code is: {otp_code}
+    
+    If you did not request this, please ignore this email.
+    """
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        # Connect to Gmail's server securely
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        
+        # Send the email
+        text = msg.as_string()
+        server.sendmail(sender_email, receiver_email, text)
+        server.quit()
+        print(f"✅ Real email successfully sent to {receiver_email}!")
+    except Exception as e:
+        print(f"❌ Failed to send real email: {e}")
+
+
+# --- UPDATED OTP ROUTE ---
 @app.post("/signup/request-otp")
 async def request_otp(user_data: SignupRequest, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.email == user_data.email).first()
@@ -135,13 +179,11 @@ async def request_otp(user_data: SignupRequest, db: Session = Depends(get_db)):
     otp = str(random.randint(100000, 999999))
     pending_otps[user_data.email] = otp
     
-    # Development OTP logging
-    print("\n" + "="*50)
-    print(f"🔒 NEW OTP REQUEST FOR: {user_data.email}")
-    print(f"🔑 VERIFICATION CODE: {otp}")
-    print("="*50 + "\n")
+    # Send the REAL email automatically instead of printing to the terminal
+    send_otp_email(user_data.email, otp)
 
-    return {"message": "OTP generated! Check your terminal."}
+    # Update the success message sent back to the frontend
+    return {"message": "OTP sent! Please check your email inbox."}
 
 @app.post("/signup/verify")
 async def verify_otp_and_signup(data: VerifyOTPRequest, db: Session = Depends(get_db)):
