@@ -563,7 +563,11 @@ def share_photo(media_id: str, platform: str = "copy_link", db: Session = Depend
 # ADVANCED SEARCH & PROCESSING
 
 @app.get("/media/search/tags", status_code=status.HTTP_200_OK)
-def search_photos_by_ai(tag: str, db: Session = Depends(get_db)):
+def search_photos_by_ai(
+    tag: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user) 
+):
     search_results = db.query(models.Media).filter(models.Media.ai_tags.ilike(f"%{tag}%")).all()
     if not search_results:
         return {"message": f"No photos found with the AI tag: {tag}", "results": []}
