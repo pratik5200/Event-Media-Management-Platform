@@ -305,7 +305,7 @@ def delete_event(
 
 # MEDIA UPLOAD & MANAGEMENT ROUTES
 
-@app.post("/events/{event_id}/upload", status_code=status.HTTP_201_CREATED)
+@app.post("/events/{event_id}/upload/", status_code=status.HTTP_201_CREATED)
 async def upload_event_image(
     event_id: str, 
     file: UploadFile = File(...),
