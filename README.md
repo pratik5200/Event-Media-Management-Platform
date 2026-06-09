@@ -1,6 +1,6 @@
 # 📸 EventHub.io: Complete Developer Guide & Architecture Deep Dive
 
-> A fully decoupled, production-ready event media platform built with **Vanilla HTML/JS** on the frontend and **FastAPI + PostgreSQL** on the backend. This guide walks you through every phase from zero to live deployment — written so that a complete beginner can follow it step by step.
+> live deployment — written so that a complete beginner can follow it step by step.
 
 ---
 
