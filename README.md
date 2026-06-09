@@ -1,6 +1,6 @@
 # 📸 EventHub.io: Complete Developer Guide & Architecture Deep Dive
 
-> live deployment — written so that a complete beginner can follow it step by step.
+>live deployment — written so that a complete beginner can follow it step by step.
 
 ---
 
@@ -9,17 +9,20 @@
 1. [Project Architecture Overview](#1-project-architecture-overview)
 2. [Prerequisites](#2-prerequisites)
 3. [Frontend Setup](#3-frontend-setup)
+   - [Responsive Mobile Navbar](#step-5-responsive-mobile-navbar)
 4. [Backend Setup](#4-backend-setup)
 5. [Database Setup — Neon (Serverless PostgreSQL)](#5-database-setup--neon-serverless-postgresql)
+   - [Collaboration & RBAC Models](#collaboration--rbac-models)
 6. [Security & Authentication](#6-security--authentication)
 7. [OTP Verification — Deep Dive & Troubleshooting](#7-otp-verification--deep-dive--troubleshooting)
 8. [APIs & Integrations](#8-apis--integrations)
 9. [Cloud Storage — AWS S3 Integration](#9-cloud-storage--aws-s3-integration)
-10. [Real-Time Systems & High Availability](#10-real-time-systems--high-availability)
-11. [API Security & Auditing](#11-api-security--auditing)
-12. [Analytics & Production Polish](#12-analytics--production-polish)
-13. [Deployment](#13-deployment)
-14. [Common Pitfalls & Warnings](#14-common-pitfalls--warnings)
+10. [Collaboration Albums & Role-Based Access](#10-collaboration-albums--role-based-access)
+11. [Real-Time Systems & High Availability](#11-real-time-systems--high-availability)
+12. [API Security & Auditing](#12-api-security--auditing)
+13. [Analytics & Production Polish](#13-analytics--production-polish)
+14. [Deployment](#14-deployment)
+15. [Common Pitfalls & Warnings](#15-common-pitfalls--warnings)
 
 ---
 
@@ -32,8 +35,10 @@ eventhub/
 ├── frontend/        ← Vanilla HTML, CSS, JS      →  Deployed on Vercel
 └── backend/         ← FastAPI + PostgreSQL        →  Deployed on Render
                          │
-                         ├── Neon (PostgreSQL DB)  →  Serverless cloud database
-                         └── AWS S3 (File Storage) →  Media/image file storage
+                         ├── Neon (PostgreSQL DB)      →  Serverless cloud database
+                         ├── AWS S3 (File Storage)     →  Media/image file storage
+                         ├── Collaboration Albums       →  Shared albums with roles
+                         └── Role-Based Access Control  →  viewer / uploader / owner
 ```
 
 **Key Design Principles:**
@@ -43,7 +48,31 @@ eventhub/
 
 ---
 
+## 🆕 New Features (Latest Release)
+
+EventHub has been updated with the following major features. Each one is covered in detail in the relevant section.
+
+| Feature | What it does | Section |
+|---------|-------------|---------|
+| **Collaboration Albums** | Users can create shared albums and invite others to contribute | [Section 3](#3-frontend-setup), [Section 4](#4-backend-setup) |
+| **Role-Based Access Control** | Album owners assign `viewer` or `uploader` roles to collaborators | [Section 5c](#collaboration--rbac-models) |
+| **Revoke Access** | Album owners can kick out any collaborator at any time | [Section 5c](#collaboration--rbac-models) |
+| **Responsive Mobile Navbar** | Navigation bar adapts its layout automatically on mobile screens | [Section 3e](#step-5-responsive-mobile-navbar) |
+
+---
+
+
 ## 2. Prerequisites
+
+Before you start, make sure you have the following installed on your machine:
+
+| Tool | Purpose | Download |
+|------|---------|----------|
+| **Python 3.10+** | Backend runtime | [python.org](https://python.org) |
+| **Git** | Version control | [git-scm.com](https://git-scm.com) |
+| **VS Code** | Code editor (recommended) | [code.visualstudio.com](https://code.visualstudio.com) |
+| **VS Code Live Server Extension** | Local frontend dev server | Install from VS Code Extensions tab |
+| **Postman** | API testing tool | [postman.com](https://postman.com) |
 
 You will also need free accounts on:
 - [GitHub](https://github.com) — code hosting
@@ -135,12 +164,91 @@ async function fetchEventFolders() {
 }
 ```
 
-### Step 5 — Run Locally
+### Step 5 — Responsive Mobile Navbar
+
+When the site opens on a mobile screen (under 768px wide), the navigation bar must change layout automatically. Use a CSS media query combined with a JavaScript hamburger toggle.
+
+**HTML structure (add to every page's `<body>`):**
+```html
+<nav class="navbar">
+    <div class="nav-brand">EventHub.io</div>
+    <button class="hamburger" id="hamburger-btn" aria-label="Open menu">&#9776;</button>
+    <ul class="nav-links" id="nav-links">
+        <li><a href="index.html">Dashboard</a></li>
+        <li><a href="#" id="logout-btn">Logout</a></li>
+    </ul>
+</nav>
+```
+
+**CSS (add to `style.css`):**
+```css
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    background: #1a1a2e;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.hamburger {
+    display: none;   /* Hidden on desktop */
+    font-size: 1.5rem;
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+}
+
+/* Mobile: screens under 768px */
+@media (max-width: 768px) {
+    .hamburger { display: block; }
+
+    .nav-links {
+        display: none;          /* Hidden by default on mobile */
+        flex-direction: column;
+        position: absolute;
+        top: 60px;
+        right: 0;
+        background: #1a1a2e;
+        width: 200px;
+        padding: 1rem;
+        border-radius: 0 0 0 8px;
+    }
+
+    .nav-links.open { display: flex; }   /* Toggled by JS */
+}
+```
+
+**JavaScript (add to `script.js`):**
+```javascript
+// Mobile hamburger menu toggle
+const hamburger = document.getElementById("hamburger-btn");
+const navLinks = document.getElementById("nav-links");
+
+if (hamburger && navLinks) {
+    hamburger.addEventListener("click", () => {
+        navLinks.classList.toggle("open");
+    });
+
+    // Close menu when user clicks a nav link (good UX)
+    navLinks.querySelectorAll("a").forEach(link => {
+        link.addEventListener("click", () => navLinks.classList.remove("open"));
+    });
+}
+```
+
+> ⚠️ **Common Mistake:** If you only add the hamburger button in HTML but forget to add the JavaScript toggle, the menu will never open on mobile. Always check on real device or Chrome DevTools → Toggle Device Toolbar (Ctrl+Shift+M).
+
+### Step 6 — Run Locally
 
 1. Open the `eventhub-frontend` folder in VS Code.
 2. Install the **Live Server** extension (search in the Extensions panel).
 3. Right-click `index.html` → select **"Open with Live Server"**.
 4. Your site is now live at `http://localhost:5500` and auto-refreshes on every save.
+5. Test mobile layout: press **F12** → click **Toggle Device Toolbar** → select **iPhone** or **Galaxy** preset.
 
 ---
 
@@ -913,7 +1021,323 @@ Fix: Remove the `Content-Type` header entirely when sending `FormData`. The brow
 
 ---
 
-## 10. Real-Time Systems & High Availability
+## 10. Collaboration Albums & Role-Based Access
+
+This section covers the full implementation of collaborative albums — shared media collections where an owner can invite other users as `viewer` or `uploader`, and revoke their access at any time.
+
+### How Collaboration Works
+
+```
+Album Owner creates album
+      ↓
+Owner invites a user by email → assigns role: viewer OR uploader
+      ↓
+Invited user gets an OTP-verified notification
+      ↓
+Viewer: can see photos, cannot upload
+Uploader: can see photos AND upload new ones
+      ↓
+Owner can revoke any collaborator → user loses access immediately
+```
+
+### Collaboration & RBAC Models
+
+Add these tables to your `models.py`:
+
+```python
+# models.py — add these classes
+
+class Album(Base):
+    __tablename__ = "albums"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, default="")
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    # Relationships
+    owner = relationship("User", back_populates="albums")
+    collaborators = relationship("AlbumCollaborator", back_populates="album", cascade="all, delete-orphan")
+    media = relationship("Media", back_populates="album")
+
+class AlbumCollaborator(Base):
+    __tablename__ = "album_collaborators"
+    id = Column(Integer, primary_key=True, index=True)
+    album_id = Column(Integer, ForeignKey("albums.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, nullable=False)  # "viewer" or "uploader"
+    invited_at = Column(DateTime, default=datetime.utcnow)
+    # Relationships
+    album = relationship("Album", back_populates="collaborators")
+    user = relationship("User")
+```
+
+> ⚠️ Also add `albums` relationship to your `User` model:
+> ```python
+> albums = relationship("Album", back_populates="owner")
+> ```
+> Then re-run: `python run_migrations.py`
+
+### Backend Endpoints
+
+Add these endpoints to `main.py`:
+
+#### Invite a Collaborator
+
+```python
+from pydantic import BaseModel
+
+class InviteRequest(BaseModel):
+    email: str
+    role: str  # "viewer" or "uploader"
+
+@app.post("/albums/{album_id}/invite")
+def invite_collaborator(
+    album_id: int,
+    invite: InviteRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # 1. Verify the album belongs to current_user
+    album = db.query(models.Album).filter(
+        models.Album.id == album_id,
+        models.Album.owner_id == current_user.id
+    ).first()
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found or you are not the owner.")
+
+    # 2. Validate role
+    if invite.role not in ["viewer", "uploader"]:
+        raise HTTPException(status_code=400, detail="Role must be 'viewer' or 'uploader'.")
+
+    # 3. Find the user to invite
+    invited_user = db.query(models.User).filter(models.User.email == invite.email).first()
+    if not invited_user:
+        raise HTTPException(status_code=404, detail="No user found with that email.")
+
+    # 4. Prevent duplicate invites
+    existing = db.query(models.AlbumCollaborator).filter(
+        models.AlbumCollaborator.album_id == album_id,
+        models.AlbumCollaborator.user_id == invited_user.id
+    ).first()
+    if existing:
+        existing.role = invite.role   # Update role if already invited
+        db.commit()
+        return {"message": f"Role updated to {invite.role} for {invite.email}."}
+
+    # 5. Create collaborator record
+    collab = models.AlbumCollaborator(
+        album_id=album_id,
+        user_id=invited_user.id,
+        role=invite.role
+    )
+    db.add(collab)
+    db.commit()
+    return {"message": f"{invite.email} invited as {invite.role}."}
+```
+
+#### Revoke a Collaborator's Access
+
+```python
+@app.delete("/albums/{album_id}/collaborators/{user_id}")
+def revoke_access(
+    album_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Only the album owner can revoke
+    album = db.query(models.Album).filter(
+        models.Album.id == album_id,
+        models.Album.owner_id == current_user.id
+    ).first()
+    if not album:
+        raise HTTPException(status_code=403, detail="You are not the owner of this album.")
+
+    collab = db.query(models.AlbumCollaborator).filter(
+        models.AlbumCollaborator.album_id == album_id,
+        models.AlbumCollaborator.user_id == user_id
+    ).first()
+    if not collab:
+        raise HTTPException(status_code=404, detail="Collaborator not found.")
+
+    db.delete(collab)
+    db.commit()
+    return {"message": "Access revoked successfully."}
+```
+
+#### Get All Collaborators for an Album
+
+```python
+@app.get("/albums/{album_id}/collaborators")
+def list_collaborators(
+    album_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Allow owner OR any collaborator to view the list
+    album = db.query(models.Album).filter(models.Album.id == album_id).first()
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found.")
+
+    is_owner = album.owner_id == current_user.id
+    is_collaborator = db.query(models.AlbumCollaborator).filter(
+        models.AlbumCollaborator.album_id == album_id,
+        models.AlbumCollaborator.user_id == current_user.id
+    ).first()
+
+    if not is_owner and not is_collaborator:
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    collaborators = db.query(models.AlbumCollaborator).filter(
+        models.AlbumCollaborator.album_id == album_id
+    ).all()
+
+    return {
+        "album": album.name,
+        "owner": album.owner_id,
+        "collaborators": [
+            {"user_id": c.user_id, "role": c.role, "invited_at": c.invited_at}
+            for c in collaborators
+        ]
+    }
+```
+
+#### Role-Gated Upload Endpoint
+
+```python
+@app.post("/albums/{album_id}/upload")
+async def upload_to_album(
+    album_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    album = db.query(models.Album).filter(models.Album.id == album_id).first()
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found.")
+
+    # Check if user is owner OR an uploader
+    is_owner = album.owner_id == current_user.id
+    collab = db.query(models.AlbumCollaborator).filter(
+        models.AlbumCollaborator.album_id == album_id,
+        models.AlbumCollaborator.user_id == current_user.id,
+        models.AlbumCollaborator.role == "uploader"
+    ).first()
+
+    if not is_owner and not collab:
+        raise HTTPException(
+            status_code=403,
+            detail="You need 'uploader' role to add photos to this album."
+        )
+
+    file_bytes = await file.read()
+    s3_url = upload_file_to_s3(file_bytes, file.filename, file.content_type)
+
+    media = models.Media(filename=file.filename, s3_url=s3_url, user_id=current_user.id, album_id=album_id)
+    db.add(media)
+    db.commit()
+    return {"message": "Uploaded successfully.", "url": s3_url}
+```
+
+> ⚠️ Add `album_id = Column(Integer, ForeignKey("albums.id"), nullable=True)` to the `Media` model, and `album = relationship("Album", back_populates="media")`.
+
+### Frontend — Collaboration UI
+
+**Invite form (add to your album detail page):**
+```javascript
+async function inviteCollaborator(albumId) {
+    const email = document.getElementById("invite-email").value.trim();
+    const role = document.getElementById("invite-role").value;  // "viewer" or "uploader"
+
+    if (!email) return alert("Please enter an email address.");
+
+    const response = await fetch(`${API_BASE_URL}/albums/${albumId}/invite`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify({ email, role })
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+        alert(data.message);
+        loadCollaborators(albumId);  // Refresh the list
+    } else {
+        alert("Error: " + data.detail);
+    }
+}
+```
+
+**Revoke button (rendered per collaborator in the list):**
+```javascript
+async function revokeAccess(albumId, userId, displayName) {
+    if (!confirm(`Remove ${displayName} from this album?`)) return;
+
+    const response = await fetch(`${API_BASE_URL}/albums/${albumId}/collaborators/${userId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+        alert("Access revoked.");
+        loadCollaborators(albumId);  // Refresh the list
+    } else {
+        alert("Error: " + data.detail);
+    }
+}
+```
+
+**Render collaborator list with revoke buttons:**
+```javascript
+async function loadCollaborators(albumId) {
+    const response = await fetch(`${API_BASE_URL}/albums/${albumId}/collaborators`, {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+    });
+    const data = await response.json();
+    const container = document.getElementById("collaborators-list");
+
+    container.innerHTML = data.collaborators.map(c => `
+        <div class="collaborator-card">
+            <span class="collab-role badge-${c.role}">${c.role.toUpperCase()}</span>
+            <span class="collab-name">User #${c.user_id}</span>
+            <button onclick="revokeAccess(${albumId}, ${c.user_id}, 'User #${c.user_id}')"
+                    class="revoke-btn">Revoke</button>
+        </div>
+    `).join("");
+}
+```
+
+### ⚠️ Where Beginners Get Stuck with Collaboration
+
+**Problem 1 — Owner can accidentally revoke themselves**
+Cause: No check preventing `owner_id == user_id` in the revoke endpoint.
+Fix: Add this guard at the top of the revoke endpoint:
+```python
+if user_id == current_user.id:
+    raise HTTPException(status_code=400, detail="You cannot revoke your own owner access.")
+```
+
+**Problem 2 — Viewer can upload if frontend validation is bypassed**
+Cause: Role check only enforced in the UI (the upload button is hidden for viewers), not the server.
+Fix: Always check the role in the FastAPI upload endpoint (already shown above). Never trust the frontend alone.
+
+**Problem 3 — After revoking, user still sees the album briefly**
+Cause: The frontend cached the album list in memory and didn't refetch.
+Fix: After a successful revoke API call, always call `loadCollaborators()` and `loadAlbums()` to force a fresh fetch.
+
+**Problem 4 — Duplicate invite creates two rows**
+Cause: The invite endpoint didn't check for existing records.
+Fix: The `existing` check in the invite endpoint above handles this — if already invited, it updates the role instead of inserting a second row.
+
+---
+
+
+---
+
+## 11. Real-Time Systems & High Availability
 
 ### Part A — WebSocket Real-Time Notifications
 
@@ -1013,7 +1437,7 @@ Your server will now stay warm 24/7 at zero cost.
 
 ---
 
-## 11. API Security & Auditing
+## 12. API Security & Auditing
 
 ### Step 1 — Audit Your Own API
 
@@ -1050,7 +1474,7 @@ def secure_ai_tag_search(
 
 ---
 
-## 12. Analytics & Production Polish
+## 13. Analytics & Production Polish
 
 ### Step 1 — Enable Vercel Web Analytics
 
@@ -1079,7 +1503,7 @@ After deploying, open your live site on both your phone and computer to confirm 
 
 ---
 
-## 13. Deployment
+## 14. Deployment
 
 ### Deploy the Frontend to Vercel
 
@@ -1124,7 +1548,7 @@ git push origin main
 
 ---
 
-## 14. Common Pitfalls & Warnings
+## 15. Common Pitfalls & Warnings
 
 A summary of every known issue encountered during development, so you don't repeat them.
 
@@ -1149,6 +1573,11 @@ A summary of every known issue encountered during development, so you don't repe
 | 17 | **S3 URL returns 403 in browser** | Bucket is private (correct) but raw URL used | Use `generate_presigned_url()` to serve files to authenticated users |
 | 18 | **S3 upload fails on Render** | AWS credentials not added to Render environment | Add `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME` to Render env vars |
 | 19 | **Multipart upload broken: 422 error** | Manually setting `Content-Type: multipart/form-data` header | Remove that header — let the browser set it automatically with the correct boundary |
+| 20 | **Mobile navbar not opening** | Hamburger button has no JS listener, or `nav-links` id doesn't match | Check IDs match in HTML and JS; test in Chrome DevTools Device mode |
+| 21 | **Viewer can upload by calling API directly** | Role check only in frontend, not in FastAPI endpoint | Always validate `role == "uploader"` server-side in the upload endpoint |
+| 22 | **Owner accidentally revokes themselves** | No self-revoke guard in the endpoint | Add `if user_id == current_user.id: raise 400` at start of revoke function |
+| 23 | **Duplicate collaborator records** | Invite endpoint inserts without checking for existing row | Check for existing record; update role instead of inserting duplicate |
+| 24 | **Revoke doesn't update UI** | Frontend doesn't refetch after successful delete | Call `loadCollaborators()` after every successful revoke API response |
 
 ---
 
@@ -1172,7 +1601,14 @@ A summary of every known issue encountered during development, so you don't repe
 - [ ] Every API endpoint returns `401` when called without a token
 - [ ] Vercel Analytics script is in the `<head>` of **every** HTML file
 - [ ] You have clicked through the live site on both desktop and mobile
+- [ ] Mobile navbar hamburger toggle works on real device or Chrome DevTools
+- [ ] Collaboration album tables (`albums`, `album_collaborators`) exist in Neon
+- [ ] Invite endpoint validates role as `viewer` or `uploader` only
+- [ ] Upload endpoint checks role server-side (not just frontend)
+- [ ] Revoke endpoint blocks owner from revoking themselves
+- [ ] After invite/revoke, frontend refreshes the collaborator list
 
 ---
+
 
 
