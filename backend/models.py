@@ -93,7 +93,9 @@ class EventCollaborator(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     
+    
     event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False) 
     
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False) 
+    
     role = Column(String, default="viewer", nullable=False)
