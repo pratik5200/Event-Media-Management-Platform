@@ -832,6 +832,12 @@ async function uploadFileToAPI(file) {
                 window.location.href = 'login.html';
                 return;
             }
+            
+            if (response.status === 403) {
+                alert("🚫 Upload blocked: You no longer have permission to add photos to this event.");
+                return; 
+            }
+
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
