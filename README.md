@@ -1609,6 +1609,12 @@ A summary of every known issue encountered during development, so you don't repe
 - [ ] After invite/revoke, frontend refreshes the collaborator list
 
 ---
+## 👤 Author
+
+**_Pratik Jaisal_**
+
+##
+## ⭐ Star this repo if you find it useful!
 
 
 
