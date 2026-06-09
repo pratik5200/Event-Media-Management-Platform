@@ -46,21 +46,6 @@ eventhub/
 - The backend **never** trusts the frontend for security. Every sensitive endpoint validates the caller's identity independently.
 - All secrets (passwords, API keys, DB URLs) live in environment variables — **never** in your code.
 
----
-
-## 🆕 New Features (Latest Release)
-
-EventHub has been updated with the following major features. Each one is covered in detail in the relevant section.
-
-| Feature | What it does | Section |
-|---------|-------------|---------|
-| **Collaboration Albums** | Users can create shared albums and invite others to contribute | [Section 3](#3-frontend-setup), [Section 4](#4-backend-setup) |
-| **Role-Based Access Control** | Album owners assign `viewer` or `uploader` roles to collaborators | [Section 5c](#collaboration--rbac-models) |
-| **Revoke Access** | Album owners can kick out any collaborator at any time | [Section 5c](#collaboration--rbac-models) |
-| **Responsive Mobile Navbar** | Navigation bar adapts its layout automatically on mobile screens | [Section 3e](#step-5-responsive-mobile-navbar) |
-
----
-
 
 ## 2. Prerequisites
 
