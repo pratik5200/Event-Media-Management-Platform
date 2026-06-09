@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw
 
 
 import boto3
-from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter,FastAPI, Depends, HTTPException, status, File, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -315,7 +315,22 @@ async def upload_event_image(
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-        
+    
+    is_owner = event.owner_id == current_user.id  
+    
+    # Check if the user is a collaborator with "uploader" rights
+    is_uploader = db.query(models.EventCollaborator).filter(
+        models.EventCollaborator.event_id == event_id,
+        models.EventCollaborator.user_id == current_user.id,
+        models.EventCollaborator.role == "uploader"
+    ).first()
+
+    # If they are NOT the owner AND NOT an uploader, kick them out immediately
+    if not is_owner and not is_uploader:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You only have viewer access. You cannot upload photos to this event."
+        )  
     content_type = file.content_type
     if content_type.startswith('image/'):
         media_type = 'image'
@@ -647,6 +662,57 @@ def download_watermarked_media(media_id: str, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Watermark Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to process image")
+
+class ShareEventRequest(BaseModel):
+    email: str
+    role: str 
+
+@app.post("/events/{event_id}/share", status_code=status.HTTP_200_OK)
+def share_event(
+    event_id: str, 
+    request: ShareEventRequest, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    # 1. Verify the current user actually owns this event
+    event = db.query(models.Event).filter(
+        models.Event.id == event_id, 
+        models.Event.owner_id == current_user.id
+    ).first()
+    
+    if not event:
+        raise HTTPException(status_code=403, detail="You can only share events you own.")
+
+    
+    if request.role not in ["viewer", "uploader"]:
+        raise HTTPException(status_code=400, detail="Invalid role. Must be 'viewer' or 'uploader'.")
+
+    # 2. Find the user they want to invite
+    invitee = db.query(models.User).filter(models.User.email == request.email).first()
+    if not invitee:
+        raise HTTPException(status_code=404, detail="User not found. They must create an EventHub account first.")
+
+    existing_collab = db.query(models.EventCollaborator).filter(
+        models.EventCollaborator.event_id == event_id,
+        models.EventCollaborator.user_id == invitee.id
+    ).first()
+
+    if existing_collab:
+        # If they already exist, just update their role
+        existing_collab.role = request.role
+        db.commit()
+        return {"message": f"Updated {request.email}'s role to {request.role}."}
+
+    # 3. Create the new collaboration link
+    new_collaborator = models.EventCollaborator(
+        event_id=event_id, 
+        user_id=invitee.id, 
+        role=request.role
+    )
+    db.add(new_collaborator)
+    db.commit()
+
+    return {"message": f"Successfully shared event with {request.email} as an {request.role}."}
 
 # STATIC FILES 
 

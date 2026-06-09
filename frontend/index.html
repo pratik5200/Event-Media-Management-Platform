@@ -16,6 +16,9 @@
             <i class="fa-solid fa-folder-open"></i>
             <span>EventHub.io</span>
         </div>
+        <button class="mobile-menu-btn" onclick="toggleMobileNav()">
+            <i class="fa-solid fa-bars"></i>
+        </button>
         
         <div class="nav-links" style="display: flex; align-items: center; gap: 25px; color: #a0a0a0; font-size: 14px; font-weight: 500;">
             <a href="#" id="navEvents" style="color: white; text-decoration: none;">Events</a>
@@ -93,7 +96,7 @@
                 </div>
                 
                 <h2 style="margin-bottom: 20px; color: var(--primary-accent); font-size: 24px;">
-                    <i class="fa-solid fa-folder-user"></i> My Folders
+                    <i class="fa-solid fa-folder-user"></i> My Events
                 </h2>
                 <div id="myFoldersContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; margin-bottom: 50px;"></div>
 

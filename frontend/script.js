@@ -223,6 +223,12 @@ function buildEventCard(event, container, isMine) {
            </div>` 
         : '';
 
+    const shareBtnHTML = isMine 
+        ? `<button class="share-folder-btn" style="margin-top: 15px; width: 100%; padding: 8px; background: rgba(168, 117, 255, 0.1); color: var(--primary-accent); border: 1px solid var(--primary-accent); border-radius: 6px; cursor: pointer; transition: 0.2s; font-weight: bold; z-index: 10;">
+               <i class="fa-solid fa-user-plus"></i> Share Event
+           </button>` 
+        : '';
+
     folderCard.innerHTML = `
         ${deleteBtnHTML}
         <div class="card-top">
@@ -236,21 +242,20 @@ function buildEventCard(event, container, isMine) {
                 <span style="color: ${tagColor}; font-weight: bold;"><i class="fa-solid fa-location-dot"></i> ${event.location || "Campus"}</span>
                 <span>by ${ownerText}</span>
             </div>
+            
+            ${shareBtnHTML}
         </div>
     `;
     
     if (isMine) {
         const trashBtn = folderCard.querySelector('.delete-folder-btn');
-        
         trashBtn.onmouseover = () => { trashBtn.style.background = "#ff4757"; trashBtn.style.color = "white"; };
         trashBtn.onmouseout = () => { trashBtn.style.background = "rgba(255, 71, 87, 0.2)"; trashBtn.style.color = "#ff4757"; };
 
         trashBtn.addEventListener('click', async (e) => {
             e.stopPropagation(); 
-            
             const confirmDel = confirm(`Are you sure you want to permanently delete "${event.title}" and ALL photos inside it?`);
             if (!confirmDel) return;
-
             const token = localStorage.getItem('eventhub_token');
             try {
                 trashBtn.innerHTML = "⏳";
@@ -258,7 +263,6 @@ function buildEventCard(event, container, isMine) {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-
                 if (response.ok) {
                     folderCard.remove(); 
                 } else {
@@ -269,6 +273,17 @@ function buildEventCard(event, container, isMine) {
                 console.error(err);
             }
         });
+
+        const shareBtn = folderCard.querySelector('.share-folder-btn');
+        if (shareBtn) {
+            shareBtn.onmouseover = () => { shareBtn.style.background = "var(--primary-accent)"; shareBtn.style.color = "white"; };
+            shareBtn.onmouseout = () => { shareBtn.style.background = "rgba(168, 117, 255, 0.1)"; shareBtn.style.color = "var(--primary-accent)"; };
+
+            shareBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                shareEvent(event.id); 
+            });
+        }
     }
 
     folderCard.addEventListener('click', () => openFolder(event.id, event.title));
@@ -1024,6 +1039,61 @@ lightbox.addEventListener('click', (e) => {
     if (e.target.id === 'lightbox') lightbox.style.display = "none";
 });
 
+/**
+ * @param {string} eventId - The unique ID of the event being shared.
+ */
+async function shareEvent(eventId) {
+    const emailToShare = prompt("✉️ Enter the email of the person you want to invite:");
+    
+    if (!emailToShare) return; 
+
+    let roleStr = prompt(
+        "🔐 Assign a role (type exactly: 'viewer' or 'uploader'):\n\n" +
+        "👉 viewer: Can only see and download photos.\n" +
+        "👉 uploader: Can add new photos to the event."
+    );
+    
+    roleStr = roleStr ? roleStr.trim().toLowerCase() : "";
+
+    if (roleStr !== "viewer" && roleStr !== "uploader") {
+        alert("❌ Invalid role. You must type either 'viewer' or 'uploader'. Share cancelled.");
+        return;
+    }
+
+    try {
+        console.log(`Attempting to share event ${eventId} with ${emailToShare} as ${roleStr}...`);
+
+        const response = await fetch(`${API_URL}/events/${eventId}/share`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("eventhub_token")}` 
+            },
+            body: JSON.stringify({ 
+                email: emailToShare, 
+                role: roleStr 
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert(`✅ ${result.message}`); 
+        } else {
+            alert(`⚠️ Error: ${result.detail}`); 
+        }
+
+    } catch (error) {
+        console.error("Network error sharing event:", error);
+        alert("🚨 Failed to connect to the server. Please check your internet connection.");
+    }
+}
+// mobile navigation menu 
+
+function toggleMobileNav() {
+    const navMenu = document.querySelector('.nav-links');
+    navMenu.classList.toggle('mobile-active');
+}
 // INITIALIZATION
 
 loadNavbarProfile(); 

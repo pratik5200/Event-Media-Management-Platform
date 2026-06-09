@@ -88,3 +88,13 @@ class Share(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     created_at = Column(TIMESTAMP(timezone=True), server_default=text('now()'), nullable=False)
+class EventCollaborator(Base):
+    __tablename__ = "event_collaborators"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    event_id = Column(String, ForeignKey("events.id"), nullable=False) 
+    
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    role = Column(String, default="viewer", nullable=False)
