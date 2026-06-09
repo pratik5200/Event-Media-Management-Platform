@@ -11,10 +11,8 @@ from typing import List
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw
 
-
-
 import boto3
-from fastapi import APIRouter,FastAPI, Depends, HTTPException, status, File, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, FastAPI, Depends, HTTPException, status, File, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -50,7 +48,6 @@ rekognition_client = boto3.client(
     region_name=os.getenv('AWS_REGION')
 )
 
-# Initialize database tables
 Base.metadata.create_all(bind=engine)
 
 # APP INITIALIZATION & MIDDLEWARE
@@ -61,7 +58,7 @@ origins = [
     "http://localhost:3000",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    "https://event-media-management-platform.vercel.app" # Your new Vercel link
+    "https://event-media-management-platform.vercel.app" 
 ]
 
 app.add_middleware(
@@ -74,7 +71,7 @@ app.add_middleware(
 
 os.makedirs("uploads", exist_ok=True)
 
-# PYDANTIC SCHEMAS (Locally Defined)
+# PYDANTIC SCHEMAS 
 
 class SignupRequest(BaseModel):
     name: str
@@ -94,6 +91,10 @@ class CommentCreate(BaseModel):
 
 class LinkRequest(BaseModel):
     url: str
+
+class ShareEventRequest(BaseModel):
+    email: str
+    role: str 
 
 # WEBSOCKET MANAGER
 
@@ -129,8 +130,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # AUTHENTICATION ROUTES
 
-pending_otps = {}
 
+pending_otps = {}
 
 def send_otp_email(receiver_email, otp_code):
     script_url = os.getenv("GOOGLE_SCRIPT_URL")
@@ -152,14 +153,11 @@ def send_otp_email(receiver_email, otp_code):
     }
 
     try:
-        # Sends data to your Google Script, completely bypassing Render's firewall!
         requests.post(script_url, json=payload)
         print(f"✅ OTP successfully sent via Google to {receiver_email}")
     except Exception as e:
         print(f"❌ Failed to send: {e}")
 
-
-# --- UPDATED OTP ROUTE ---
 @app.post("/signup/request-otp")
 async def request_otp(user_data: SignupRequest, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.email == user_data.email).first()
@@ -168,11 +166,7 @@ async def request_otp(user_data: SignupRequest, db: Session = Depends(get_db)):
 
     otp = str(random.randint(100000, 999999))
     pending_otps[user_data.email] = otp
-    
-    # Send the REAL email automatically instead of printing to the terminal
     send_otp_email(user_data.email, otp)
-
-    # Update the success message sent back to the frontend
     return {"message": "OTP sent! Please check your email inbox."}
 
 @app.post("/signup/verify")
@@ -303,6 +297,48 @@ def delete_event(
     db.commit()
     return {"message": "Event and all associated media deleted successfully"}
 
+@app.post("/events/{event_id}/share", status_code=status.HTTP_200_OK)
+def share_event(
+    event_id: str, 
+    request: ShareEventRequest, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    event = db.query(models.Event).filter(
+        models.Event.id == event_id, 
+        models.Event.owner_id == current_user.id
+    ).first()
+    
+    if not event:
+        raise HTTPException(status_code=403, detail="You can only share events you own.")
+
+    if request.role not in ["viewer", "uploader"]:
+        raise HTTPException(status_code=400, detail="Invalid role. Must be 'viewer' or 'uploader'.")
+
+    invitee = db.query(models.User).filter(models.User.email == request.email).first()
+    if not invitee:
+        raise HTTPException(status_code=404, detail="User not found. They must create an account first.")
+
+    existing_collab = db.query(models.EventCollaborator).filter(
+        models.EventCollaborator.event_id == event_id,
+        models.EventCollaborator.user_id == invitee.id
+    ).first()
+
+    if existing_collab:
+        existing_collab.role = request.role
+        db.commit()
+        return {"message": f"Updated {request.email}'s role to {request.role}."}
+
+    new_collaborator = models.EventCollaborator(
+        event_id=event_id, 
+        user_id=invitee.id, 
+        role=request.role
+    )
+    db.add(new_collaborator)
+    db.commit()
+
+    return {"message": f"Successfully shared event with {request.email} as an {request.role}."}
+
 # MEDIA UPLOAD & MANAGEMENT ROUTES
 
 @app.post("/events/{event_id}/upload/", status_code=status.HTTP_201_CREATED)
@@ -318,19 +354,18 @@ async def upload_event_image(
     
     is_owner = event.owner_id == current_user.id  
     
-    # Check if the user is a collaborator with "uploader" rights
     is_uploader = db.query(models.EventCollaborator).filter(
         models.EventCollaborator.event_id == event_id,
         models.EventCollaborator.user_id == current_user.id,
         models.EventCollaborator.role == "uploader"
     ).first()
 
-    # If they are NOT the owner AND NOT an uploader, kick them out immediately
     if not is_owner and not is_uploader:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, 
             detail="You only have viewer access. You cannot upload photos to this event."
         )  
+        
     content_type = file.content_type
     if content_type.startswith('image/'):
         media_type = 'image'
@@ -344,7 +379,6 @@ async def upload_event_image(
     contents = await file.read() 
     file_fingerprint = hashlib.sha256(contents).hexdigest() 
     
-    # Duplicate prevention mechanism
     existing_media = db.query(models.Media).filter(models.Media.file_hash == file_fingerprint).first()
     if existing_media:
         return {
@@ -372,12 +406,7 @@ async def upload_event_image(
         smart_tags = [] 
         if media_type == 'image':
             ai_response = rekognition_client.detect_labels(
-                Image={
-                    'S3Object': {
-                        'Bucket': AWS_BUCKET_NAME,
-                        'Name': unique_filename
-                    }
-                },
+                Image={'S3Object': {'Bucket': AWS_BUCKET_NAME, 'Name': unique_filename}},
                 MaxLabels=5,       
                 MinConfidence=75   
             )
@@ -662,57 +691,6 @@ def download_watermarked_media(media_id: str, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Watermark Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to process image")
-
-class ShareEventRequest(BaseModel):
-    email: str
-    role: str 
-
-@app.post("/events/{event_id}/share", status_code=status.HTTP_200_OK)
-def share_event(
-    event_id: str, 
-    request: ShareEventRequest, 
-    db: Session = Depends(get_db), 
-    current_user: models.User = Depends(get_current_user)
-):
-    # 1. Verify the current user actually owns this event
-    event = db.query(models.Event).filter(
-        models.Event.id == event_id, 
-        models.Event.owner_id == current_user.id
-    ).first()
-    
-    if not event:
-        raise HTTPException(status_code=403, detail="You can only share events you own.")
-
-    
-    if request.role not in ["viewer", "uploader"]:
-        raise HTTPException(status_code=400, detail="Invalid role. Must be 'viewer' or 'uploader'.")
-
-    # 2. Find the user they want to invite
-    invitee = db.query(models.User).filter(models.User.email == request.email).first()
-    if not invitee:
-        raise HTTPException(status_code=404, detail="User not found. They must create an EventHub account first.")
-
-    existing_collab = db.query(models.EventCollaborator).filter(
-        models.EventCollaborator.event_id == event_id,
-        models.EventCollaborator.user_id == invitee.id
-    ).first()
-
-    if existing_collab:
-        # If they already exist, just update their role
-        existing_collab.role = request.role
-        db.commit()
-        return {"message": f"Updated {request.email}'s role to {request.role}."}
-
-    # 3. Create the new collaboration link
-    new_collaborator = models.EventCollaborator(
-        event_id=event_id, 
-        user_id=invitee.id, 
-        role=request.role
-    )
-    db.add(new_collaborator)
-    db.commit()
-
-    return {"message": f"Successfully shared event with {request.email} as an {request.role}."}
 
 # STATIC FILES 
 
