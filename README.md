@@ -64,16 +64,6 @@ EventHub has been updated with the following major features. Each one is covered
 
 ## 2. Prerequisites
 
-Before you start, make sure you have the following installed on your machine:
-
-| Tool | Purpose | Download |
-|------|---------|----------|
-| **Python 3.10+** | Backend runtime | [python.org](https://python.org) |
-| **Git** | Version control | [git-scm.com](https://git-scm.com) |
-| **VS Code** | Code editor (recommended) | [code.visualstudio.com](https://code.visualstudio.com) |
-| **VS Code Live Server Extension** | Local frontend dev server | Install from VS Code Extensions tab |
-| **Postman** | API testing tool | [postman.com](https://postman.com) |
-
 You will also need free accounts on:
 - [GitHub](https://github.com) — code hosting
 - [Vercel](https://vercel.com) — frontend deployment
