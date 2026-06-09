@@ -158,6 +158,28 @@ def send_otp_email(receiver_email, otp_code):
     except Exception as e:
         print(f"❌ Failed to send: {e}")
 
+def send_invite_email(receiver_email, event_title, role):
+    script_url = os.getenv("GOOGLE_SCRIPT_URL")
+    if not script_url: return
+
+    payload = {
+        "to": receiver_email,
+        "subject": f"You've been invited to '{event_title}' on EventHub!",
+        "body": f"""
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+            <h2>You've been invited! 🎉</h2>
+            <p>You have been given <b>{role}</b> access to the event <b>{event_title}</b>.</p>
+            <p>Log in to your EventHub.io dashboard to view and upload photos.</p>
+            <br>
+            <a href="https://event-media-management-platform.vercel.app" style="background: #a875ff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Go to EventHub</a>
+        </div>
+        """
+    }
+    try:
+        requests.post(script_url, json=payload)
+    except Exception as e:
+        print(f"Failed to send invite email: {e}")
+
 @app.post("/signup/request-otp")
 async def request_otp(user_data: SignupRequest, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.email == user_data.email).first()
@@ -336,8 +358,43 @@ def share_event(
     )
     db.add(new_collaborator)
     db.commit()
-
+    send_invite_email(request.email, event.title, request.role)
     return {"message": f"Successfully shared event with {request.email} as an {request.role}."}
+
+@app.delete("/events/{event_id}/share/{email}", status_code=status.HTTP_200_OK)
+def remove_collaborator(
+    event_id: str, 
+    email: str, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    # 1. Verify the person making the request actually owns the event
+    event = db.query(models.Event).filter(
+        models.Event.id == event_id, 
+        models.Event.owner_id == current_user.id
+    ).first()
+    
+    if not event:
+        raise HTTPException(status_code=403, detail="You can only remove people from events you own.")
+
+    # 2. Find the user they want to kick out
+    target_user = db.query(models.User).filter(models.User.email == email).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # 3. Find the collaboration link and destroy it
+    collab = db.query(models.EventCollaborator).filter(
+        models.EventCollaborator.event_id == event_id,
+        models.EventCollaborator.user_id == target_user.id
+    ).first()
+
+    if not collab:
+        raise HTTPException(status_code=404, detail=f"{email} does not have access to this event.")
+
+    db.delete(collab)
+    db.commit()
+
+    return {"message": f"Successfully revoked access for {email} 🚫"}
 
 # MEDIA UPLOAD & MANAGEMENT ROUTES
 
