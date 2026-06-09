@@ -224,9 +224,14 @@ function buildEventCard(event, container, isMine) {
         : '';
 
     const shareBtnHTML = isMine 
-        ? `<button class="share-folder-btn" style="margin-top: 15px; width: 100%; padding: 8px; background: rgba(168, 117, 255, 0.1); color: var(--primary-accent); border: 1px solid var(--primary-accent); border-radius: 6px; cursor: pointer; transition: 0.2s; font-weight: bold; z-index: 10;">
-               <i class="fa-solid fa-user-plus"></i> Share Event
-           </button>` 
+        ? `<div style="display: flex; gap: 10px; margin-top: 15px; z-index: 10; width: 100%;">
+               <button class="share-folder-btn" style="flex: 1; padding: 8px; background: rgba(168, 117, 255, 0.1); color: var(--primary-accent); border: 1px solid var(--primary-accent); border-radius: 6px; cursor: pointer; transition: 0.2s; font-weight: bold;">
+                   <i class="fa-solid fa-user-plus"></i> Share
+               </button>
+               <button class="revoke-folder-btn" style="flex: 1; padding: 8px; background: rgba(255, 71, 87, 0.1); color: #ff4757; border: 1px solid #ff4757; border-radius: 6px; cursor: pointer; transition: 0.2s; font-weight: bold;">
+                   <i class="fa-solid fa-user-minus"></i> Revoke
+               </button>
+           </div>` 
         : '';
 
     folderCard.innerHTML = `
@@ -248,13 +253,14 @@ function buildEventCard(event, container, isMine) {
     `;
     
     if (isMine) {
+        // ---  TRASH BUTTON LOGIC ---
         const trashBtn = folderCard.querySelector('.delete-folder-btn');
         trashBtn.onmouseover = () => { trashBtn.style.background = "#ff4757"; trashBtn.style.color = "white"; };
         trashBtn.onmouseout = () => { trashBtn.style.background = "rgba(255, 71, 87, 0.2)"; trashBtn.style.color = "#ff4757"; };
 
         trashBtn.addEventListener('click', async (e) => {
             e.stopPropagation(); 
-            const confirmDel = confirm(`Are you sure you want to permanently delete "${event.title}" and ALL photos inside it?`);
+            const confirmDel = confirm(`Are you sure you want to permanently delete "${event.title}"?`);
             if (!confirmDel) return;
             const token = localStorage.getItem('eventhub_token');
             try {
@@ -263,26 +269,24 @@ function buildEventCard(event, container, isMine) {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (response.ok) {
-                    folderCard.remove(); 
-                } else {
-                    alert("Failed to delete event.");
-                    trashBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-                }
-            } catch (err) {
-                console.error(err);
-            }
+                if (response.ok) { folderCard.remove(); } else { alert("Failed to delete."); trashBtn.innerHTML = '<i class="fa-solid fa-trash"></i>'; }
+            } catch (err) { console.error(err); }
         });
 
+        // ---  SHARE BUTTON LOGIC ---
         const shareBtn = folderCard.querySelector('.share-folder-btn');
         if (shareBtn) {
             shareBtn.onmouseover = () => { shareBtn.style.background = "var(--primary-accent)"; shareBtn.style.color = "white"; };
             shareBtn.onmouseout = () => { shareBtn.style.background = "rgba(168, 117, 255, 0.1)"; shareBtn.style.color = "var(--primary-accent)"; };
+            shareBtn.addEventListener('click', (e) => { e.stopPropagation(); shareEvent(event.id); });
+        }
 
-            shareBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); 
-                shareEvent(event.id); 
-            });
+        // ---  REVOKE BUTTON LOGIC  ---
+        const revokeBtn = folderCard.querySelector('.revoke-folder-btn');
+        if (revokeBtn) {
+            revokeBtn.onmouseover = () => { revokeBtn.style.background = "#ff4757"; revokeBtn.style.color = "white"; };
+            revokeBtn.onmouseout = () => { revokeBtn.style.background = "rgba(255, 71, 87, 0.1)"; revokeBtn.style.color = "#ff4757"; };
+            revokeBtn.addEventListener('click', (e) => { e.stopPropagation(); revokeAccess(event.id); });
         }
     }
 
@@ -1094,6 +1098,36 @@ function toggleMobileNav() {
     const navMenu = document.querySelector('.nav-links');
     navMenu.classList.toggle('mobile-active');
 }
+
+async function revokeAccess(eventId) {
+    const emailToRemove = prompt("🚫 Enter the email of the person you want to remove:");
+    
+    if (!emailToRemove) return;
+
+    const confirmRevoke = confirm(`Are you sure you want to completely remove ${emailToRemove}'s access to this event?`);
+    if (!confirmRevoke) return;
+
+    try {
+        const response = await fetch(`${API_URL}/events/${eventId}/share/${emailToRemove}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${localStorage.getItem("eventhub_token")}` 
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert(`✅ ${result.message}`); 
+        } else {
+            alert(`⚠️ Error: ${result.detail}`); 
+        }
+    } catch (error) {
+        console.error("Network error removing user:", error);
+        alert("🚨 Failed to connect to the server.");
+    }
+}
+
 // INITIALIZATION
 
 loadNavbarProfile(); 
